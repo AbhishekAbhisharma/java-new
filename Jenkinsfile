@@ -4,6 +4,7 @@ pipeline {
   environment {
     IMAGE_NAME = "node-sample-app"
     IMAGE_TAG  = "${env.BUILD_NUMBER}"
+    DOCKER_REG = "index.docker.io"        // Docker Hub
     SONAR_HOST = "http://sonarqube:9000"
   }
 
@@ -15,11 +16,13 @@ pipeline {
       }
     }
 
-    stage('Install & Test (coverage)') {
+    stage('Install & Test (Coverage)') {
       steps {
-        // use official node image to run npm commands so we don't need node installed on Jenkins controller
         sh """
-          docker run --rm -v \$(pwd):/app -w /app node:18-alpine sh -c "npm ci && npm test -- --coverage"
+          docker run --rm \
+            -v \$(pwd):/app \
+            -w /app \
+            node:18 bash -c "npm ci && npm test -- --coverage"
         """
       }
       post {
@@ -35,8 +38,7 @@ pipeline {
           sh """
             docker run --rm \
               -v \$(pwd):/usr/src \
-              -w /usr/src \
-              sonarsource/sonar-scanner-cli \
+              -w /usr/src sonarsource/sonar-scanner-cli \
               -Dsonar.projectKey=node-sample-app \
               -Dsonar.sources=. \
               -Dsonar.host.url=${SONAR_HOST} \
@@ -47,13 +49,13 @@ pipeline {
       }
     }
 
-    stage('Wait for Quality Gate') {
+    stage('Quality Gate') {
       steps {
         timeout(time: 5, unit: 'MINUTES') {
           script {
             def qg = waitForQualityGate()
-            if (qg.status != 'OK') {
-              error "Quality Gate failed: ${qg.status}"
+            if (qg.status != "OK") {
+              error "❌ Quality Gate failed: ${qg.status}"
             }
           }
         }
@@ -62,24 +64,33 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+        sh """
+          docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+        """
       }
     }
 
     stage('Trivy Scan') {
       steps {
-        // use stable trivy tag and mount docker socket for image scanning
-        sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.46.1 image ${IMAGE_NAME}:${IMAGE_TAG}"
+        sh """
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+            --severity HIGH,CRITICAL \
+            --exit-code 1 \
+            ${IMAGE_NAME}:${IMAGE_TAG}
+        """
       }
     }
 
     stage('Push to Docker Hub') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
+        withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+
           sh """
-            docker login -u ${DH_USER} -p ${DH_PASS}
-            docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DH_USER}/${IMAGE_NAME}:${IMAGE_TAG}
-            docker push ${DH_USER}/${IMAGE_NAME}:${IMAGE_TAG}
+            echo "${PASS}" | docker login -u "${USER}" --password-stdin
+            docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${USER}/${IMAGE_NAME}:${IMAGE_TAG}
+            docker push ${USER}/${IMAGE_NAME}:${IMAGE_TAG}
           """
         }
       }
@@ -89,18 +100,16 @@ pipeline {
       steps {
         sh """
           docker rm -f ${IMAGE_NAME} || true
-          docker run -d --name ${IMAGE_NAME} -p 3000:3000 ${DH_USER}/${IMAGE_NAME}:${IMAGE_TAG}
+          docker run -d --name ${IMAGE_NAME} -p 3000:3000 ${USER}/${IMAGE_NAME}:${IMAGE_TAG}
         """
       }
     }
-
   }
 
   post {
     always {
-      echo "Pipeline Completed."
+      echo "🚀 Pipeline Completed!"
     }
   }
 }
-
 
