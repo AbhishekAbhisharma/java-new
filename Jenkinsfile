@@ -4,7 +4,7 @@ pipeline {
   environment {
     IMAGE_NAME = "node-sample-app"
     IMAGE_TAG  = "${env.BUILD_NUMBER}"
-    DOCKER_REG = "index.docker.io"        // Docker Hub
+    DOCKER_REG = "index.docker.io"
     SONAR_HOST = "http://sonarqube:9000"
   }
 
@@ -20,7 +20,7 @@ pipeline {
       steps {
         sh """
           docker run --rm \
-            -v \$(pwd):/app \
+            -v ${WORKSPACE}:/app \
             -w /app \
             node:18 bash -c "npm ci && npm test -- --coverage"
         """
@@ -37,7 +37,7 @@ pipeline {
         withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
           sh """
             docker run --rm \
-              -v \$(pwd):/usr/src \
+              -v ${WORKSPACE}:/usr/src \
               -w /usr/src sonarsource/sonar-scanner-cli \
               -Dsonar.projectKey=node-sample-app \
               -Dsonar.sources=. \
@@ -86,7 +86,6 @@ pipeline {
     stage('Push to Docker Hub') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-
           sh """
             echo "${PASS}" | docker login -u "${USER}" --password-stdin
             docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${USER}/${IMAGE_NAME}:${IMAGE_TAG}
@@ -112,5 +111,4 @@ pipeline {
     }
   }
 }
-
 
