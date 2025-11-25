@@ -17,8 +17,10 @@ pipeline {
 
     stage('Install & Test (coverage)') {
       steps {
-        sh 'npm ci'
-        sh 'npm test -- --coverage'
+        // use official node image to run npm commands so we don't need node installed on Jenkins controller
+        sh """
+          docker run --rm -v \$(pwd):/app -w /app node:18-alpine sh -c "npm ci && npm test -- --coverage"
+        """
       }
       post {
         always {
@@ -66,6 +68,7 @@ pipeline {
 
     stage('Trivy Scan') {
       steps {
+        // use stable trivy tag and mount docker socket for image scanning
         sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.46.1 image ${IMAGE_NAME}:${IMAGE_TAG}"
       }
     }
@@ -95,7 +98,7 @@ pipeline {
 
   post {
     always {
-      echo "Pipeline Completed Successfully."
+      echo "Pipeline Completed."
     }
   }
 }
