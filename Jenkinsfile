@@ -17,8 +17,13 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    echo "📦 Installing Node dependencies..."
-                    npm install
+                    echo "📦 Installing dependencies using Node 18 container..."
+
+                    docker run --rm \
+                        -v $PWD:/app \
+                        -w /app \
+                        node:18 \
+                        npm install
                 '''
             }
         }
