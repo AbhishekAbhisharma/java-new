@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         SONAR_TOKEN = credentials('sonar-token')
-        SONAR_HOST  = "http://sonarqube:9000"
+        SONAR_HOST  = "http://host.docker.internal:9000"   // FIXED
         WORK_DIR    = "/var/lib/docker/volumes/jenkins_home/_data/workspace/myproject-pipeline"
     }
 
@@ -34,7 +34,7 @@ pipeline {
 
         stage('Sonar Scan') {
             steps {
-                withSonarQubeEnv('MySonar') {   // <-- CRITICAL FIX
+                withSonarQubeEnv('MySonar') {  // CRITICAL FIX
                     sh '''
                         echo "🔍 Running Sonar Scanner..."
 
@@ -46,6 +46,7 @@ pipeline {
                             sonarsource/sonar-scanner-cli \
                             -Dsonar.projectBaseDir=/usr/src \
                             -Dsonar.projectKey=myProject \
+                            -Dsonar.host.url=${SONAR_HOST} \
                             -Dsonar.login=${SONAR_TOKEN}
                     '''
                 }
@@ -81,7 +82,6 @@ pipeline {
                 '''
             }
         }
-
     }
 }
 
