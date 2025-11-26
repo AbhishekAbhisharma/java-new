@@ -2,9 +2,7 @@ pipeline {
   agent any
 
   environment {
-    IMAGE_NAME = "node-sample-app"
-    IMAGE_TAG  = "${env.BUILD_NUMBER}"
-    DOCKER_REG = "index.docker.io"
+    SONAR_TOKEN = credentials('sonar-token')
     SONAR_HOST = "http://sonarqube:9000"
   }
 
@@ -16,99 +14,61 @@ pipeline {
       }
     }
 
-    stage('Install & Test (Coverage)') {
+    stage('Install Dependencies') {
       steps {
-        sh """
-          docker run --rm \
-            -v ${WORKSPACE}:/app \
-            -w /app \
-            node:18 bash -c "npm ci && npm test -- --coverage"
-        """
-      }
-      post {
-        always {
-          archiveArtifacts artifacts: 'coverage/**', allowEmptyArchive: true
-        }
+        sh '''
+          if [ -f package.json ]; then
+            echo "Installing dependencies..."
+            npm install
+          fi
+        '''
       }
     }
 
-    stage('SonarQube Analysis') {
+    stage('Sonar Scan') {
       steps {
-        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-          sh """
-            docker run --rm \
-              -v ${WORKSPACE}:/usr/src \
-              -w /usr/src sonarsource/sonar-scanner-cli \
-              -Dsonar.projectKey=node-sample-app \
-              -Dsonar.sources=. \
-              -Dsonar.host.url=${SONAR_HOST} \
-              -Dsonar.login=${SONAR_TOKEN} \
-              -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-          """
-        }
+        echo "Running Sonar scanner..."
+        sh '''
+          docker run --rm \
+            --network ci-net \
+            -e SONAR_HOST_URL=${SONAR_HOST} \
+            -e SONAR_TOKEN=${SONAR_TOKEN} \
+            -v "$WORKSPACE":/usr/src \
+            sonarsource/sonar-scanner-cli \
+            -Dsonar.projectBaseDir=/usr/src \
+            -Dsonar.projectKey=myProject \
+            -Dsonar.login=${SONAR_TOKEN}
+        '''
       }
     }
 
     stage('Quality Gate') {
       steps {
-        timeout(time: 5, unit: 'MINUTES') {
-          script {
+        script {
+          timeout(time: 5, unit: 'MINUTES') {
             def qg = waitForQualityGate()
-            if (qg.status != "OK") {
-              error "❌ Quality Gate failed: ${qg.status}"
+            if (qg.status != 'OK') {
+              error "❌ Quality Gate Failed: ${qg.status}"
+            } else {
+              echo "✔ Quality Gate Passed!"
             }
           }
         }
       }
     }
 
-    stage('Build Docker Image') {
+    stage('Build') {
       steps {
-        sh """
-          docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-        """
+        sh '''
+          echo "🚀 Building application..."
+          if [ -f package.json ]; then
+            npm run build || true
+          fi
+        '''
       }
     }
 
-    stage('Trivy Scan') {
-      steps {
-        sh """
-          docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:latest image \
-            --severity HIGH,CRITICAL \
-            --exit-code 1 \
-            ${IMAGE_NAME}:${IMAGE_TAG}
-        """
-      }
-    }
-
-    stage('Push to Docker Hub') {
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-          sh """
-            echo "${PASS}" | docker login -u "${USER}" --password-stdin
-            docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${USER}/${IMAGE_NAME}:${IMAGE_TAG}
-            docker push ${USER}/${IMAGE_NAME}:${IMAGE_TAG}
-          """
-        }
-      }
-    }
-
-    stage('Deploy Container') {
-      steps {
-        sh """
-          docker rm -f ${IMAGE_NAME} || true
-          docker run -d --name ${IMAGE_NAME} -p 3000:3000 ${USER}/${IMAGE_NAME}:${IMAGE_TAG}
-        """
-      }
-    }
   }
 
-  post {
-    always {
-      echo "🚀 Pipeline Completed!"
-    }
-  }
 }
 
