@@ -1,12 +1,17 @@
 pipeline {
     agent any
 
+    environment {
+        HOST_WS = "/var/lib/docker/volumes/jenkins_home/_data/workspace/myproject-pipeline"
+    }
+
     stages {
 
         stage('Checkout') {
             steps {
                 checkout scm
-                sh 'echo "Workspace = $PWD"'
+                sh 'echo "📁 Jenkins workspace:"'
+                sh 'pwd'
                 sh 'ls -lah'
             }
         }
@@ -14,14 +19,13 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    echo "📦 Installing dependencies using Node container..."
+                    echo "📦 Installing dependencies using Node 18 container..."
 
                     docker run --rm \
                         --user 1000:1000 \
-                        -v /var/jenkins_home/workspace/myproject-pipeline:/app \
+                        -v ${HOST_WS}:/app \
                         -w /app \
-                        node:18 \
-                        npm install
+                        node:18 npm install
                 '''
             }
         }
@@ -30,6 +34,8 @@ pipeline {
             steps {
                 withSonarQubeEnv('MySonar') {
                     sh '''
+                        echo "🔍 Running Sonar Scan..."
+
                         /var/jenkins_home/tools/hudson.plugins.sonar.SonarRunnerInstallation/SonarScanner/bin/sonar-scanner \
                           -Dsonar.projectKey=myProject \
                           -Dsonar.sources=. \
@@ -41,10 +47,25 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 2, unit: 'MINUTES') {
+                timeout(time: 3, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
         }
+
+        stage('Build') {
+            steps {
+                sh '''
+                    echo "🚀 Building project..."
+
+                    docker run --rm \
+                        --user 1000:1000 \
+                        -v ${HOST_WS}:/app \
+                        -w /app \
+                        node:18 npm run build || true
+                '''
+            }
+        }
+
     }
 }
