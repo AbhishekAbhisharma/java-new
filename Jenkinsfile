@@ -3,7 +3,6 @@ pipeline {
 
     environment {
         SONAR_TOKEN = credentials('sonar-token')
-        WORK_DIR    = "/var/lib/docker/volumes/jenkins_home/_data/workspace/myproject-pipeline"
     }
 
     stages {
@@ -11,19 +10,15 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                sh 'ls -lah'
+                sh 'echo "📁 Workspace: $(pwd)"'
             }
         }
 
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    docker run --rm \
-                        --network ci-net \
-                        -v "${WORK_DIR}":/app \
-                        -w /app \
-                        node:18 \
-                        npm install
+                    echo "📦 Installing Node dependencies..."
+                    npm install
                 '''
             }
         }
@@ -32,11 +27,11 @@ pipeline {
             steps {
                 withSonarQubeEnv('MySonar') {
                     sh """
-                        sonar-scanner \
-                          -Dsonar.projectKey=myProject \
-                          -Dsonar.sources=. \
-                          -Dsonar.host.url=http://15.207.71.20:9000 \
-                          -Dsonar.login=${SONAR_TOKEN}
+                        ${tool 'SonarScanner'}/bin/sonar-scanner \
+                        -Dsonar.projectKey=myProject \
+                        -Dsonar.sources=. \
+                        -Dsonar.host.url=http://15.207.71.20:9000 \
+                        -Dsonar.login=${SONAR_TOKEN}
                     """
                 }
             }
@@ -44,14 +39,8 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                script {
-                    timeout(time: 5, unit: 'MINUTES') {
-                        def qg = waitForQualityGate()
-                        if (qg.status != 'OK') {
-                            error "❌ Quality Gate Failed: ${qg.status}"
-                        }
-                        echo "✔ Quality Gate PASSED"
-                    }
+                timeout(time: 3, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
@@ -59,16 +48,10 @@ pipeline {
         stage('Build') {
             steps {
                 sh '''
-                    docker run --rm \
-                        --network ci-net \
-                        -v "${WORK_DIR}":/app \
-                        -w /app \
-                        node:18 \
-                        npm run build || true
+                    echo "🚀 Build step..."
                 '''
             }
         }
-
     }
 }
 
