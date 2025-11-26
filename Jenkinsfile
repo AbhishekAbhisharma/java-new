@@ -6,7 +6,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                sh 'echo "Workspace: $PWD"'
+                sh 'echo "Workspace = $PWD"'
                 sh 'ls -lah'
             }
         }
@@ -17,7 +17,8 @@ pipeline {
                     echo "📦 Installing dependencies using Node container..."
 
                     docker run --rm \
-                        -v "$PWD":/app \
+                        --user 1000:1000 \
+                        -v /var/jenkins_home/workspace/myproject-pipeline:/app \
                         -w /app \
                         node:18 \
                         npm install
@@ -43,19 +44,6 @@ pipeline {
                 timeout(time: 2, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
-            }
-        }
-
-        stage('Build') {
-            steps {
-                sh '''
-                    echo "🚀 Building..."
-                    docker run --rm \
-                        -v "$PWD":/app \
-                        -w /app \
-                        node:18 \
-                        npm run build || true
-                '''
             }
         }
     }
