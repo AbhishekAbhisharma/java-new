@@ -3,7 +3,7 @@ pipeline {
 
   environment {
     SONAR_TOKEN = credentials('sonar-token')
-    SONAR_HOST = "http://sonarqube:9000"
+    SONAR_HOST  = "http://sonarqube:9000"
   }
 
   stages {
@@ -15,19 +15,23 @@ pipeline {
     }
 
     stage('Install Dependencies') {
+      agent {
+        docker {
+          image 'node:18'
+          args '--network ci-net'
+        }
+      }
       steps {
         sh '''
-          if [ -f package.json ]; then
-            echo "Installing dependencies..."
-            npm install
-          fi
+          echo "📦 Installing dependencies..."
+          npm install
         '''
       }
     }
 
     stage('Sonar Scan') {
       steps {
-        echo "Running Sonar scanner..."
+        echo "🔍 Running sonar scanner..."
         sh '''
           docker run --rm \
             --network ci-net \
@@ -50,7 +54,7 @@ pipeline {
             if (qg.status != 'OK') {
               error "❌ Quality Gate Failed: ${qg.status}"
             } else {
-              echo "✔ Quality Gate Passed!"
+              echo "✔ Quality Gate PASSED"
             }
           }
         }
@@ -58,12 +62,16 @@ pipeline {
     }
 
     stage('Build') {
+      agent {
+        docker {
+          image 'node:18'
+          args '--network ci-net'
+        }
+      }
       steps {
         sh '''
-          echo "🚀 Building application..."
-          if [ -f package.json ]; then
-            npm run build || true
-          fi
+          echo "🚀 Building project..."
+          npm run build || true
         '''
       }
     }
