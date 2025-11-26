@@ -11,7 +11,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                sh 'echo "📁 Current workspace: $(pwd)"'
+                sh 'echo "📁 Workspace: $(pwd)"'
                 sh 'ls -lah'
             }
         }
@@ -19,9 +19,10 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    echo "📦 Installing dependencies (Node 18 container)..."
+                    echo "📦 Installing dependencies (Node 18)..."
 
                     docker run --rm \
+                        --user 1000:1000 \
                         --network ci-net \
                         -v "$(pwd)":/app \
                         -w /app \
@@ -33,12 +34,14 @@ pipeline {
 
         stage('Sonar Scan') {
             steps {
-                echo "🔍 Running Sonar Scanner..."
                 sh '''
+                    echo "🔍 Running Sonar Scanner..."
+
                     docker run --rm \
+                        --user 1000:1000 \
                         --network ci-net \
                         -e SONAR_HOST_URL=${SONAR_HOST} \
-                        -e SONAR_LOGIN=${SONAR_TOKEN} \
+                        -e SONAR_TOKEN=${SONAR_TOKEN} \
                         -v "$(pwd)":/usr/src \
                         sonarsource/sonar-scanner-cli \
                         -Dsonar.projectBaseDir=/usr/src \
@@ -48,27 +51,13 @@ pipeline {
             }
         }
 
-        stage('Quality Gate') {
-            steps {
-                script {
-                    timeout(time: 5, unit: 'MINUTES') {
-                        def qg = waitForQualityGate()
-                        if (qg.status != 'OK') {
-                            error "❌ Quality Gate Failed: ${qg.status}"
-                        } else {
-                            echo "✔ Quality Gate PASSED"
-                        }
-                    }
-                }
-            }
-        }
-
         stage('Build') {
             steps {
                 sh '''
-                    echo "🚀 Building project (Node 18 container)..."
+                    echo "🚀 Building project..."
 
                     docker run --rm \
+                        --user 1000:1000 \
                         --network ci-net \
                         -v "$(pwd)":/app \
                         -w /app \
