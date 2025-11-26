@@ -15,23 +15,23 @@ pipeline {
     }
 
     stage('Install Dependencies') {
-      agent {
-        docker {
-          image 'node:18'
-          args '--network ci-net'
-        }
-      }
       steps {
         sh '''
-          echo "📦 Installing dependencies..."
-          npm install
+          echo "📦 Installing dependencies (Node 18 container)..."
+
+          docker run --rm \
+            --network ci-net \
+            -v "$WORKSPACE":/app \
+            -w /app \
+            node:18 \
+            npm install
         '''
       }
     }
 
     stage('Sonar Scan') {
       steps {
-        echo "🔍 Running sonar scanner..."
+        echo "🔍 Running Sonar Scanner..."
         sh '''
           docker run --rm \
             --network ci-net \
@@ -62,21 +62,20 @@ pipeline {
     }
 
     stage('Build') {
-      agent {
-        docker {
-          image 'node:18'
-          args '--network ci-net'
-        }
-      }
       steps {
         sh '''
-          echo "🚀 Building project..."
-          npm run build || true
+          echo "🚀 Building project (Node 18 container)..."
+
+          docker run --rm \
+            --network ci-net \
+            -v "$WORKSPACE":/app \
+            -w /app \
+            node:18 \
+            npm run build || true
         '''
       }
     }
 
   }
-
 }
 
