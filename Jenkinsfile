@@ -34,19 +34,21 @@ pipeline {
 
         stage('Sonar Scan') {
             steps {
-                sh '''
-                    echo "🔍 Running Sonar Scanner..."
+                withSonarQubeEnv('MySonar') {   // <-- CRITICAL FIX
+                    sh '''
+                        echo "🔍 Running Sonar Scanner..."
 
-                    docker run --rm \
-                        --network ci-net \
-                        -e SONAR_HOST_URL=${SONAR_HOST} \
-                        -e SONAR_TOKEN=${SONAR_TOKEN} \
-                        -v "${WORK_DIR}":/usr/src \
-                        sonarsource/sonar-scanner-cli \
-                        -Dsonar.projectBaseDir=/usr/src \
-                        -Dsonar.projectKey=myProject \
-                        -Dsonar.login=${SONAR_TOKEN}
-                '''
+                        docker run --rm \
+                            --network ci-net \
+                            -e SONAR_HOST_URL=${SONAR_HOST} \
+                            -e SONAR_TOKEN=${SONAR_TOKEN} \
+                            -v "${WORK_DIR}":/usr/src \
+                            sonarsource/sonar-scanner-cli \
+                            -Dsonar.projectBaseDir=/usr/src \
+                            -Dsonar.projectKey=myProject \
+                            -Dsonar.login=${SONAR_TOKEN}
+                    '''
+                }
             }
         }
 
