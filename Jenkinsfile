@@ -4,6 +4,7 @@ pipeline {
     environment {
         SONAR_TOKEN = credentials('sonar-token')
         SONAR_HOST  = "http://sonarqube:9000"
+        WORK_DIR    = "/var/lib/docker/volumes/jenkins_home/_data/workspace/myproject-pipeline"
     }
 
     stages {
@@ -19,12 +20,11 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    echo "📦 Installing dependencies (Node 18)..."
+                    echo "📦 Installing dependencies..."
 
                     docker run --rm \
-                        --user 1000:1000 \
                         --network ci-net \
-                        -v "$(pwd)":/app \
+                        -v "${WORK_DIR}":/app \
                         -w /app \
                         node:18 \
                         npm install
@@ -38,16 +38,30 @@ pipeline {
                     echo "🔍 Running Sonar Scanner..."
 
                     docker run --rm \
-                        --user 1000:1000 \
                         --network ci-net \
                         -e SONAR_HOST_URL=${SONAR_HOST} \
                         -e SONAR_TOKEN=${SONAR_TOKEN} \
-                        -v "$(pwd)":/usr/src \
+                        -v "${WORK_DIR}":/usr/src \
                         sonarsource/sonar-scanner-cli \
                         -Dsonar.projectBaseDir=/usr/src \
                         -Dsonar.projectKey=myProject \
                         -Dsonar.login=${SONAR_TOKEN}
                 '''
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                script {
+                    timeout(time: 5, unit: 'MINUTES') {
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            error "❌ Quality Gate Failed: ${qg.status}"
+                        } else {
+                            echo "✔ Quality Gate PASSED"
+                        }
+                    }
+                }
             }
         }
 
@@ -57,9 +71,8 @@ pipeline {
                     echo "🚀 Building project..."
 
                     docker run --rm \
-                        --user 1000:1000 \
                         --network ci-net \
-                        -v "$(pwd)":/app \
+                        -v "${WORK_DIR}":/app \
                         -w /app \
                         node:18 \
                         npm run build || true
