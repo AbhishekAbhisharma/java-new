@@ -10,17 +10,18 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                sh 'echo "📁 Workspace: $(pwd)"'
+                sh 'echo "📁 Workspace: $WORKSPACE"'
+                sh 'ls -lah'
             }
         }
 
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    echo "📦 Installing dependencies using Node 18 container..."
+                    echo "📦 Installing dependencies using Node container..."
 
                     docker run --rm \
-                        -v $PWD:/app \
+                        -v "${WORKSPACE}":/app \
                         -w /app \
                         node:18 \
                         npm install
@@ -52,11 +53,8 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh '''
-                    echo "🚀 Build step..."
-                '''
+                echo "🚀 Build completed."
             }
         }
     }
 }
-
