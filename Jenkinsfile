@@ -21,7 +21,7 @@ pipeline {
 
           docker run --rm \
             --network ci-net \
-            -v "$WORKSPACE":/app \
+            -v "$(pwd)":/app \
             -w /app \
             node:18 \
             npm install
@@ -37,7 +37,7 @@ pipeline {
             --network ci-net \
             -e SONAR_HOST_URL=${SONAR_HOST} \
             -e SONAR_TOKEN=${SONAR_TOKEN} \
-            -v "$WORKSPACE":/usr/src \
+            -v "$(pwd)":/usr/src \
             sonarsource/sonar-scanner-cli \
             -Dsonar.projectBaseDir=/usr/src \
             -Dsonar.projectKey=myProject \
@@ -68,7 +68,7 @@ pipeline {
 
           docker run --rm \
             --network ci-net \
-            -v "$WORKSPACE":/app \
+            -v "$(pwd)":/app \
             -w /app \
             node:18 \
             npm run build || true
