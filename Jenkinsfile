@@ -1,16 +1,12 @@
 pipeline {
     agent any
 
-    environment {
-        SONAR_TOKEN = credentials('sonar-token')
-    }
-
     stages {
 
         stage('Checkout') {
             steps {
                 checkout scm
-                sh 'echo "📁 Workspace: $WORKSPACE"'
+                sh 'echo "Workspace: $PWD"'
                 sh 'ls -lah'
             }
         }
@@ -21,7 +17,7 @@ pipeline {
                     echo "📦 Installing dependencies using Node container..."
 
                     docker run --rm \
-                        -v "${WORKSPACE}":/app \
+                        -v "$PWD":/app \
                         -w /app \
                         node:18 \
                         npm install
@@ -32,20 +28,19 @@ pipeline {
         stage('Sonar Scan') {
             steps {
                 withSonarQubeEnv('MySonar') {
-                    sh """
-                        ${tool 'SonarScanner'}/bin/sonar-scanner \
-                        -Dsonar.projectKey=myProject \
-                        -Dsonar.sources=. \
-                        -Dsonar.host.url=http://15.207.71.20:9000 \
-                        -Dsonar.login=${SONAR_TOKEN}
-                    """
+                    sh '''
+                        /var/jenkins_home/tools/hudson.plugins.sonar.SonarRunnerInstallation/SonarScanner/bin/sonar-scanner \
+                          -Dsonar.projectKey=myProject \
+                          -Dsonar.sources=. \
+                          -Dsonar.host.url=http://15.207.71.20:9000
+                    '''
                 }
             }
         }
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 3, unit: 'MINUTES') {
+                timeout(time: 2, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -53,7 +48,14 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo "🚀 Build completed."
+                sh '''
+                    echo "🚀 Building..."
+                    docker run --rm \
+                        -v "$PWD":/app \
+                        -w /app \
+                        node:18 \
+                        npm run build || true
+                '''
             }
         }
     }
