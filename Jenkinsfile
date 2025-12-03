@@ -33,7 +33,7 @@ pipeline {
                         /var/jenkins_home/tools/hudson.plugins.sonar.SonarRunnerInstallation/SonarScanner/bin/sonar-scanner \
                           -Dsonar.projectKey=myProject \
                           -Dsonar.sources=. \
-                          -Dsonar.host.url=http://13.233.194.145:9000
+                          -Dsonar.host.url=http://sonarqube:9000
                     '''
                 }
             }
@@ -41,7 +41,9 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 3, unit: 'MINUTES') {
+                echo "⏳ Waiting 10 seconds before checking quality gate..."
+                sleep 10
+                timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
