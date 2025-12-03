@@ -2,27 +2,24 @@ pipeline {
     agent any
 
     environment {
-        HOST_WS = "/var/lib/docker/volumes/jenkins_home/_data/workspace/myproject-pipeline"
+        HOST_WS = "${WORKSPACE}"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
+                echo "📁 Checking out source code from GitHub..."
                 checkout scm
-                sh 'echo "📁 Jenkins workspace:"'
-                sh 'pwd'
-                sh 'ls -lah'
+                sh 'pwd && ls -lah'
             }
         }
 
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    echo "📦 Installing dependencies using Node 18 container..."
-
+                    echo "📦 Installing dependencies using Node 18..."
                     docker run --rm \
-                        --user 1000:1000 \
                         -v ${HOST_WS}:/app \
                         -w /app \
                         node:18 npm install
@@ -35,8 +32,7 @@ pipeline {
                 withSonarQubeEnv('MySonar') {
                     sh '''
                         echo "🔍 Running Sonar Scan..."
-
-                        /var/jenkins_home/tools/hudson.plugins.sonar.SonarRunnerInstallation/SonarScanner/bin/sonar-scanner \
+                        sonar-scanner \
                           -Dsonar.projectKey=myProject \
                           -Dsonar.sources=. \
                           -Dsonar.host.url=http://13.201.20.207:9000
@@ -56,10 +52,8 @@ pipeline {
         stage('Build') {
             steps {
                 sh '''
-                    echo "🚀 Building project..."
-
+                    echo "🚀 Building Node Project..."
                     docker run --rm \
-                        --user 1000:1000 \
                         -v ${HOST_WS}:/app \
                         -w /app \
                         node:18 npm run build || true
@@ -70,7 +64,7 @@ pipeline {
         stage('Trivy Scan') {
             steps {
                 sh '''
-                    echo "🛡️ Running Trivy Scan..."
+                    echo "🛡 Running Trivy FS scan on project..."
 
                     docker run --rm \
                         -v ${HOST_WS}:/project \
