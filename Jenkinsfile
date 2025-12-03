@@ -10,17 +10,12 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                sh 'echo "📁 Jenkins workspace:"'
-                sh 'pwd'
-                sh 'ls -lah'
             }
         }
 
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    echo "📦 Installing dependencies using Node 18 container..."
-
                     docker run --rm \
                         --user 1000:1000 \
                         -v ${HOST_WS}:/app \
@@ -34,8 +29,6 @@ pipeline {
             steps {
                 withSonarQubeEnv('MySonar') {
                     sh '''
-                        echo "🔍 Running Sonar Scan..."
-
                         /var/jenkins_home/tools/hudson.plugins.sonar.SonarRunnerInstallation/SonarScanner/bin/sonar-scanner \
                           -Dsonar.projectKey=myProject \
                           -Dsonar.sources=. \
@@ -56,8 +49,6 @@ pipeline {
         stage('Build') {
             steps {
                 sh '''
-                    echo "🚀 Building project..."
-
                     docker run --rm \
                         --user 1000:1000 \
                         -v ${HOST_WS}:/app \
@@ -67,5 +58,24 @@ pipeline {
             }
         }
 
+        stage('Trivy Scan') {
+            steps {
+                sh '''
+                    docker run --rm \
+                        -v ${HOST_WS}:/project \
+                        aquasec/trivy fs /project \
+                        --severity HIGH,CRITICAL \
+                        --format json \
+                        -o /project/trivy-report.json || true
+                '''
+            }
+
+            post {
+                always {
+                    echo "Saving Trivy report..."
+                    archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true
+                }
+            }
+        }
     }
 }
