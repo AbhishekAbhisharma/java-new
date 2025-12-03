@@ -6,13 +6,10 @@ pipeline {
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
-                sh 'echo "📁 Jenkins workspace:"'
-                sh 'pwd'
-                sh 'ls -lah'
+                sh 'pwd && ls -lah'
             }
         }
 
@@ -20,9 +17,7 @@ pipeline {
             steps {
                 sh '''
                     echo "📦 Installing dependencies using Node 18 container..."
-
                     docker run --rm \
-                        --user 1000:1000 \
                         -v ${HOST_WS}:/app \
                         -w /app \
                         node:18 npm install
@@ -35,7 +30,6 @@ pipeline {
                 withSonarQubeEnv('MySonar') {
                     sh '''
                         echo "🔍 Running Sonar Scan..."
-
                         /var/jenkins_home/tools/hudson.plugins.sonar.SonarRunnerInstallation/SonarScanner/bin/sonar-scanner \
                           -Dsonar.projectKey=myProject \
                           -Dsonar.sources=. \
@@ -57,9 +51,7 @@ pipeline {
             steps {
                 sh '''
                     echo "🚀 Building project..."
-
                     docker run --rm \
-                        --user 1000:1000 \
                         -v ${HOST_WS}:/app \
                         -w /app \
                         node:18 npm run build || true
@@ -71,13 +63,11 @@ pipeline {
             steps {
                 sh '''
                     echo "🛡 Running Trivy FS scan on project..."
-
                     docker run --rm \
                         -v ${HOST_WS}:/project \
                         aquasec/trivy fs /project
                 '''
             }
         }
-
     }
 }
