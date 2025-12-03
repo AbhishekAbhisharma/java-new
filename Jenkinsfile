@@ -2,24 +2,27 @@ pipeline {
     agent any
 
     environment {
-        HOST_WS = "${WORKSPACE}"
+        HOST_WS = "/var/lib/docker/volumes/jenkins_home/_data/workspace/myproject-pipeline"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                echo "📁 Checking out source code from GitHub..."
                 checkout scm
-                sh 'pwd && ls -lah'
+                sh 'echo "📁 Jenkins workspace:"'
+                sh 'pwd'
+                sh 'ls -lah'
             }
         }
 
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    echo "📦 Installing dependencies using Node 18..."
+                    echo "📦 Installing dependencies using Node 18 container..."
+
                     docker run --rm \
+                        --user 1000:1000 \
                         -v ${HOST_WS}:/app \
                         -w /app \
                         node:18 npm install
@@ -32,7 +35,8 @@ pipeline {
                 withSonarQubeEnv('MySonar') {
                     sh '''
                         echo "🔍 Running Sonar Scan..."
-                        sonar-scanner \
+
+                        /var/jenkins_home/tools/hudson.plugins.sonar.SonarRunnerInstallation/SonarScanner/bin/sonar-scanner \
                           -Dsonar.projectKey=myProject \
                           -Dsonar.sources=. \
                           -Dsonar.host.url=http://13.201.20.207:9000
@@ -52,8 +56,10 @@ pipeline {
         stage('Build') {
             steps {
                 sh '''
-                    echo "🚀 Building Node Project..."
+                    echo "🚀 Building project..."
+
                     docker run --rm \
+                        --user 1000:1000 \
                         -v ${HOST_WS}:/app \
                         -w /app \
                         node:18 npm run build || true
