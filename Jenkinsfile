@@ -21,8 +21,7 @@ pipeline {
                 sh '''
                     echo "📦 Installing dependencies using Node 18 container..."
 
-                    docker run --rm \
-                        --user 1000:1000 \
+                     docker run --rm \
                         -v ${HOST_WS}:/app \
                         -w /app \
                         node:18 npm install
@@ -59,10 +58,9 @@ pipeline {
                     echo "🚀 Building project..."
 
                     docker run --rm \
-                        --user 1000:1000 \
                         -v ${HOST_WS}:/app \
                         -w /app \
-                        node:18 npm run build || true
+                        node:18 npm run build
                 '''
             }
         }
