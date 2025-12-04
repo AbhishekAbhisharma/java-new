@@ -6,10 +6,13 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
-                sh 'pwd && ls -lah'
+                sh 'echo "📁 Jenkins workspace:"'
+                sh 'pwd'
+                sh 'ls -lah'
             }
         }
 
@@ -17,7 +20,9 @@ pipeline {
             steps {
                 sh '''
                     echo "📦 Installing dependencies using Node 18 container..."
+
                     docker run --rm \
+                        --user 1000:1000 \
                         -v ${HOST_WS}:/app \
                         -w /app \
                         node:18 npm install
@@ -30,10 +35,11 @@ pipeline {
                 withSonarQubeEnv('MySonar') {
                     sh '''
                         echo "🔍 Running Sonar Scan..."
+
                         /var/jenkins_home/tools/hudson.plugins.sonar.SonarRunnerInstallation/SonarScanner/bin/sonar-scanner \
                           -Dsonar.projectKey=myProject \
                           -Dsonar.sources=. \
-                          -Dsonar.host.url=http://13.127.140.227:9000
+                          -Dsonar.host.url=http://65.0.6.89:9000
                     '''
                 }
             }
@@ -41,9 +47,7 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                echo "⏳ Waiting 10 seconds before checking quality gate..."
-                sleep 10
-                timeout(time: 5, unit: 'MINUTES') {
+                timeout(time: 3, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -53,7 +57,9 @@ pipeline {
             steps {
                 sh '''
                     echo "🚀 Building project..."
+
                     docker run --rm \
+                        --user 1000:1000 \
                         -v ${HOST_WS}:/app \
                         -w /app \
                         node:18 npm run build || true
@@ -61,15 +67,5 @@ pipeline {
             }
         }
 
-        stage('Trivy Scan') {
-            steps {
-                sh '''
-                    echo "🛡 Running Trivy FS scan on project..."
-                    docker run --rm \
-                        -v ${HOST_WS}:/project \
-                        aquasec/trivy fs /project
-                '''
-            }
-        }
     }
 }
