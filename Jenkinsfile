@@ -37,7 +37,7 @@ pipeline {
                         /var/jenkins_home/tools/hudson.plugins.sonar.SonarRunnerInstallation/SonarScanner/bin/sonar-scanner \
                           -Dsonar.projectKey=myProject \
                           -Dsonar.sources=. \
-                          -Dsonar.host.url=http://13.127.140.227:9000
+                          -Dsonar.host.url=http://65.0.6.89:9000
                     '''
                 }
             }
