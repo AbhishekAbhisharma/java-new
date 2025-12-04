@@ -21,7 +21,7 @@ pipeline {
                 sh '''
                     echo "📦 Installing dependencies using Node 18 container..."
 
-                     docker run --rm \
+                    docker run --rm \
                         -v ${HOST_WS}:/app \
                         -w /app \
                         node:18 npm install
