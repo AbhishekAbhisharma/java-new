@@ -52,18 +52,16 @@ pipeline {
             }
         }
 
-        stage('Build') {
-            steps {
-                sh '''
-                    echo "🚀 Building project..."
+stage('Build') {
+    steps {
+        sh '''
+            echo "🧪 Running Tests..."
 
-                    docker run --rm \
-                        -v ${HOST_WS}:/app \
-                        -w /app \
-                        node:18 npm run build
-                '''
-            }
-        }
-
+            docker run --rm \
+                -v ${HOST_WS}:/app \
+                -w /app \
+                node:18 npm test
+        '''
     }
 }
+
